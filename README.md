@@ -7,6 +7,92 @@ It allows rich text editing with formatting options like bold, italic, underline
 
 **Installation:** Download from Releases section or from bin/Release/
 
+## Reset do editor (versão 1.0.3)
+
+Importe a solução gerenciada [QuillRichTextField_1_0_3_managed.zip](bin/Release/QuillRichTextField_1_0_3_managed.zip)
+no mesmo ambiente do aplicativo. No Power Apps Studio, atualize o componente de
+código para a versão disponível (salve e reabra o aplicativo se necessário).
+O controle mantém a mesma identidade e suas propriedades anteriores.
+
+O reset usa uma nova propriedade numérica de entrada, **`ResetKey`**. Sempre que
+seu valor muda, o editor restaura o **`Default` atual**, publica o resultado em
+**`HtmlText`** e limpa o histórico de desfazer/refazer. Se `Default` estiver vazio,
+o editor e `HtmlText` ficam vazios. Cada instância acompanha sua própria chave.
+
+Exemplo em Power Fx com separadores pt-BR:
+
+1. Na propriedade `Default` do PCF, configure o HTML inicial ou o campo do registro.
+2. Na propriedade `ResetKey` do PCF, coloque:
+
+   ```powerfx
+   Coalesce(varResetQuill; 0)
+   ```
+
+3. No `OnSelect` do botão de limpar/restaurar, coloque:
+
+   ```powerfx
+   Set(varResetQuill; Coalesce(varResetQuill; 0) + 1)
+   ```
+
+Cada clique incrementa a chave e restaura o valor padrão, mesmo quando `Default`
+não mudou. Não é necessário inicializar a variável. Para limpar o campo, use
+`Default = ""`. Para restaurar o conteúdo de um registro, mantenha esse conteúdo
+em `Default`. Use variáveis diferentes para resetar editores independentemente;
+compartilhe uma variável se quiser resetar vários juntos.
+
+Em ambientes com separadores em inglês, as fórmulas são
+`Coalesce(varResetQuill, 0)` e
+`Set(varResetQuill, Coalesce(varResetQuill, 0) + 1)`.
+
+Não use `Set(varResetQuill; 1)` repetidamente: a chave precisa **mudar** a cada
+pedido. Atualizações de layout/cores e chamadas subsequentes com a mesma chave
+preservam a digitação. Mudanças de `Default` continuam sendo aplicadas e mudanças
+na configuração da barra de ferramentas também preservam as edições.
+
+`Reset(NomeDoPCF)` não é a interface implementada. O ciclo de vida documentado de
+[StandardControl](https://learn.microsoft.com/en-us/power-apps/developer/component-framework/reference/control)
+não expõe um callback de reset. Uma propriedade de entrada, processada em
+`updateView`, permite solicitar esse comportamento explicitamente pelo Power Fx.
+Esta alteração não adiciona reset automático por `ResetForm`.
+
+### Código e geração do pacote
+
+Este repositório originalmente contém a solução e o JavaScript compilado, mas
+não o projeto TypeScript PCF referenciado pelo projeto MSBuild. O módulo do
+controle foi recuperado do pacote original e está em
+[control/CustomRichTextField.js](control/CustomRichTextField.js), com o manifesto
+em [control/ControlManifest.xml](control/ControlManifest.xml).
+
+Para gerar a solução atualizada, execute no PowerShell:
+
+```powershell
+./scripts/build.ps1
+```
+
+O script usa o ZIP original como base, preservando as bibliotecas Quill, os estilos,
+as licenças e os demais arquivos. Substitui apenas o módulo do controle dentro do
+bundle, o manifesto (controle 0.0.2) e a versão da solução (1.0.3). O ZIP original
+permanece disponível. Este é o processo de build desta alteração; o projeto
+MSBuild original ainda depende do projeto PCF externo ausente.
+
+Para validar o código e o pacote gerado (requer Node.js):
+
+```powershell
+node --test tests/reset.test.cjs
+./tests/check-package.ps1
+```
+
+Os testes automatizados usam um substituto de Quill para verificar o ciclo de
+vida PCF, resets repetidos, saída vazia, mudanças de Default, preservação de edições,
+histórico, isolamento entre instâncias e notificações reentrantes. A validação do
+ZIP verifica os metadados, os arquivos preservados, a sintaxe do bundle completo
+e executa os mesmos testes no módulo efetivamente empacotado.
+
+Validação final no Studio: digite sobre o Default, acione o botão várias vezes,
+confira `NomeDoPCF.HtmlText`, tente Ctrl+Z depois do reset e repita com `Default`
+vazio e com HTML formatado. A importação e execução no Power Apps precisam ser
+validadas no ambiente de destino.
+
 <img src="screenshots/QillRTE1.png" alt="Quill Custom Rich Text Editor For PowerApps" height="180px"> <img src="screenshots/QuillRTE2.png" alt="Quill Custom Rich Text Editor For PowerApps" height="180px">
 
 
@@ -44,6 +130,7 @@ It allows rich text editing with formatting options like bold, italic, underline
 | Property | Type | Required | Default | Description |
 |----------|------|----------|---------|-------------|
 | `Default` | SingleLine.Text | No | - | Initial value for the rich text input (similar to standard text input) |
+| `ResetKey` | Whole.None | No | `0` | Change this number to restore the current Default and clear undo/redo history |
 | `headingLevels` | SingleLine.Text | No | - | Comma-separated heading levels to show (e.g. 1,2,3) |
 
 ### Color Customization Properties
